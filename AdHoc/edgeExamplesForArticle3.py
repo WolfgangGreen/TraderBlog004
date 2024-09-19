@@ -1,6 +1,7 @@
 import pandas as pd
 
 from ReportProcessing.intradayDetailReport import read_intraday_details, extract_symbol_details
+from StockTraders.fastFollowerHelpers import get_trading_pairs
 from Util.datesAndTimestamps import timestamp, time_string, trading_dates, previous_trading_date
 from Util.pathsAndStockSets import StockSet, set_stock_set, get_symbols, temp_files_path
 
@@ -86,7 +87,7 @@ if False:
     results_df.to_csv(temp_files_path('hhhl_results_second_try.csv'), index=False)
 
 # Fast Follower Strategy -- First Approach
-if True:
+if False:
     lookback_window = 10  # Look at the previous 10 trading days when finding correlations (two weeks)
     trigger_gain_threshold = 1.0  # Trigger if the stock goes up 1% during the trigger window
     mean_gain_threshold = 0.5  # Only accept pairs with average gain of 0.5% per trade in the training
@@ -157,16 +158,18 @@ if True:
 # Fast Follower Strategy -- Second Approach. Include additional fields to support filtering
 #   compute change over last 5 minutes, 10 minutes, and 15 minutes
 #   compute how often a dependent stock rises at least 0%, 0.5%, and 1.0%
-if True:
+if False:
     lookback_window = 10  # Look at the previous 10 trading days when finding correlations
-    trigger_gain_threshold = 1.0  # Trigger if the stock goes up 1% during the trigger window
+    trigger_gain_threshold = 1.0  # Only look at independent stocks which gained at least 1.0% in the most recent bar
     mean_gain_threshold = 0.5  # Only accept pairs with average gain of 0.5% per trade in the training
     min_count = 5  # Only accept pairs if there were at least 5 instances in the training set (every other week)
     effect_window = 3  # Sell after 15 minutes
+    symbols = get_symbols()
+
 
     def compute_trigger_and_effect_df(intraday_details):
         symbol_results = list()  # List of DataFrame (one for each symbol)
-        for symbol in get_symbols():
+        for symbol in symbols:
             s_hist = extract_symbol_details(intraday_details, symbol)
             s_hist['trigger_last_15_pct'] = 100 * (s_hist['close'] / s_hist.shift(2)['open'] - 1)
             s_hist['trigger_last_10_pct'] = 100 * (s_hist['close'] / s_hist.shift(1)['open'] - 1)
@@ -227,6 +230,50 @@ if True:
         filter_df = average_gains[['independent_symbol', 'dependent_symbol']]
         test = pd.merge(cross_join, average_gains, on=['independent_symbol', 'dependent_symbol'])
         test = test[['timestamp', 'independent_symbol', 'dependent_symbol', 'date', 'time',
+                     'trigger_last_05_pct_x', 'trigger_last_10_pct_x', 'trigger_last_15_pct_x',
+                     'trigger_last_05_pct_y', 'trigger_last_10_pct_y', 'trigger_last_15_pct_y',
+                     'count', 'mean_gain_pct', 'gain_00', 'gain_05', 'gain_10',
+                     'gain_pct']]
+        results.append(test)
+    results_df = pd.concat(results).round(4)
+    results_df.to_csv(temp_files_path('fast_follower_results_training_set.csv'), index=False)
+    # results_df.to_csv(temp_files_path('fast_follower_results_test_set.csv'), index=False)
+
+# Fast Follower Strategy -- Third Approach. Refactor so that we use common code with fastFollower.py (using procedures
+# in fastFollowerHelpers.py)
+if True:
+    lookback_window = 10  # Look at the previous 10 trading days when finding correlations
+    effect_window = 15  # Sell after 15 minutes
+    trigger_pct = 1.0  # Only look at independent stocks which gained at least 1.0% in the last 15 minutes
+    min_count = 7  # Only accept pairs if there were at least 7 instances in the training set (every other week)
+    mean_gain_threshold = 0.5  # Only accept pairs with average gain of 0.5% per trade in the training
+    success_rate_05 = 0.666  # Only accept pairs that gain 0.5% at least 2/3 of the time
+
+    symbols = get_symbols()
+    results = list()  # List of DataFrame
+
+    for ts in trading_dates(timestamp('2023-12-01'), timestamp('2024-05-31')):
+        # for ts in trading_dates(timestamp('2024-06-01'), timestamp('2024-07-18')):
+        print(ts)
+
+        trading_pairs = get_trading_pairs(ts, lookback_window=lookback_window, effect_window=effect_window,
+                                          trigger_pct=trigger_pct, min_count=min_count,
+                                          mean_gain_pct=mean_gain_threshold,
+                                          success_rate_05=success_rate_05)
+
+        test_details = read_intraday_details(ts)  # the day following the training set
+        testing_set = compute_trigger_and_effect_df(test_details)
+        triggers = testing_set[testing_set['trigger_last_15_pct'] >= trigger_pct]
+        cross_join = triggers.merge(testing_set, on='timestamp')
+        cross_join = cross_join.rename(columns={'symbol_x': 'independent_symbol',
+                                                'symbol_y': 'dependent_symbol',
+                                                'date_x': 'date',
+                                                'decision_time_x': 'decision_time',
+                                                'trigger_pct_x': 'trigger_pct',
+                                                'gain_pct_y': 'gain_pct'})
+        filter_df = trading_pairs[['independent_symbol', 'dependent_symbol']]
+        test = pd.merge(cross_join, trading_pairs, on=['independent_symbol', 'dependent_symbol'])
+        test = test[['timestamp', 'independent_symbol', 'dependent_symbol', 'date', 'decision_time',
                      'trigger_last_05_pct_x', 'trigger_last_10_pct_x', 'trigger_last_15_pct_x',
                      'trigger_last_05_pct_y', 'trigger_last_10_pct_y', 'trigger_last_15_pct_y',
                      'count', 'mean_gain_pct', 'gain_00', 'gain_05', 'gain_10',

@@ -17,7 +17,7 @@
 #   consume_snapshots(dict)  -- returns (True, details) if there is a trading opportunity
 
 import pandas as pd
-from Util.datesAndTimestamps import timestamp, date_string, time_string, previous_trading_date
+from Util.datesAndTimestamps import time_string
 
 
 class SingleStockTradeIdentifier:
@@ -82,7 +82,7 @@ class HigherHighsHigherLowsTradeIdentifier(SingleStockTradeIdentifier):
             b0, b1, b2 = self.recent_bars[0], self.recent_bars[1], self.recent_bars[2]
             if not ((b0['high'] < b1['high'] < b2['high']) and (b0['low'] < b1['low'] < b2['low'])):
                 return False, None
-            # Then check how much the highs and lows increased over the past 3 bars)
+            # Then check how much the highs and lows increased over the past 3 bars
             high_gain_pct = 100 * (bar['high'] / self.recent_bars[0]['high'] - 1)
             low_gain_pct = 100 * (bar['low'] / self.recent_bars[0]['low'] - 1)
             # ... and how much the price dropped in the most recent bar
@@ -102,31 +102,40 @@ class HigherHighsHigherLowsTradeIdentifier(SingleStockTradeIdentifier):
 #   1. looking_for_trades
 #
 # The parameters in the constructor:
-#   symbol: symbol we are considering for this trade identifier
-#   minimum_gain_pct: only consider trades where the sum of the gains between high(-3) and high(-1) and between
-#       low(-3) and low(-1) >= minimum_gain_pct
-#   maximum_drop_pct: only consider trades where the drop between high(-1) and close(-1) <= maximum_drop_pct
+#   independent_symbol: stock that we are looking to have a strong positive move
+#   dependent_symbol: stock that we expect to move upwards right after the independent stock moves
+#   ind_15min_trigger_pct: only consider trades if the independent stock gains this amount in the previous 15 minutes
+#   ind_5min_trigger_pct: only consider trades if the independent stock gains this amount in the last bar
+#   dep_5min_trigger_pct: only consider trades if the dependent stock gains this amount in the last bar
 #   earliest_trade_time: don't consider trades where decision_time is before earliest_trade_time
 
 class FastFollowerTradeIdentifier(DoubleStockTradeIdentifier):
-    def __init__(self, independent_symbol, dependent_symbol, ind_trigger_pct, dep_trigger_pct, earliest_trade_time):
+    def __init__(self, independent_symbol, dependent_symbol, ind_15min_trigger_pct, ind_5min_trigger_pct,
+                 dep_5min_trigger_pct, earliest_trade_time):
         DoubleStockTradeIdentifier.__init__(self, independent_symbol, dependent_symbol, 'looking_for_trades')
-        self.independent_trigger_pct = ind_trigger_pct
-        self.dependent_trigger_pct = dep_trigger_pct
+        self.ind_15min_trigger_pct = ind_15min_trigger_pct
+        self.ind_5min_trigger_pct = ind_5min_trigger_pct
+        self.dep_5min_trigger_pct = dep_5min_trigger_pct
         self.earliest_trade_time = earliest_trade_time
+        self.independent_bars = list()
 
     def consume_1min_bars(self, symbol1_bar, symbol2_bar):
         return False, None
 
     def consume_5min_bars(self, symbol1_bar, symbol2_bar):
         current_time = time_string(symbol1_bar['timestamp'] + pd.Timedelta(minutes=5))
-        if current_time >= self.earliest_trade_time:
+        self.independent_bars.append(symbol1_bar)
+        if current_time >= self.earliest_trade_time and len(self.independent_bars) > 2:
+            ind_trigger_last_15_pct = 100 * (symbol1_bar['close'] / self.independent_bars[-3]['open'] - 1)
             ind_trigger_last_5_pct = 100 * (symbol1_bar['close'] / symbol1_bar['open'] - 1)
             dep_trigger_last_5_pct = 100 * (symbol2_bar['close'] / symbol2_bar['open'] - 1)
-            if (ind_trigger_last_5_pct <= self.independent_trigger_pct
-                    or dep_trigger_last_5_pct <= self.dependent_trigger_pct):
+            if (ind_trigger_last_15_pct <= self.ind_15min_trigger_pct
+                    or ind_trigger_last_5_pct <= self.ind_5min_trigger_pct
+                    or dep_trigger_last_5_pct <= self.dep_5min_trigger_pct):
                 return False, None
-            details = {'symbol': self.symbol2, 'target_buy_price': float(round(symbol2_bar['close'], 4))}
+            details = {'symbol': self.symbol2,
+                       'target_buy_price': float(round(symbol2_bar['close'], 4)),
+                       'independent_symbol': self.symbol1}
             return True, details
         return False, None
 

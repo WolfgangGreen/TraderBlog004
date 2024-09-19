@@ -4,7 +4,7 @@
 #
 # For right now, I'm just implementing the 2nd one
 
-from alpaca.trading.enums import OrderSide, OrderType, PositionSide
+from alpaca.trading.enums import OrderSide, PositionSide
 
 from TradingApis.alpacaOperations import (place_market_buy_order, place_market_sell_order,
                                           get_latest_bar, process_orders_for_trade)
