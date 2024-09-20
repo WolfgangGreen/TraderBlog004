@@ -1,4 +1,4 @@
-# A purchase tracker collects all the important data on each stock trade that we make
+# A trade tracker collects all the important data on each stock trade that we make
 #
 # It stores the following data items and can dump them to a DataFrame
 #  - decision_time: pandas Timestamp for the moment where we are deciding to buy the stock
@@ -123,35 +123,15 @@ class TradeInfo:
                 sell_time, self.target_sell_price, self.actual_sell_price, self.actual_gain,
                 self.actual_profit]
 
-    def add_limit_buy_order(self, shares, limit_buy_price, order_start, order_id):
-        self.shares = shares
-        self.target_buy_price = limit_buy_price
-        return self.add_order(OrderSide.BUY, OrderType.LIMIT, limit_buy_price, order_start, order_id)
-
     def add_market_buy_order(self, shares, target_buy_price, order_start, order_id):
         self.shares = shares
         self.target_buy_price = target_buy_price
         return self.add_order(OrderSide.BUY, OrderType.MARKET, target_buy_price, order_start, order_id)
 
-    def add_stop_loss_order(self, stop_loss_price, order_start, order_id):
-        if self.position_side == PositionSide.LONG:
-            return self.add_order(OrderSide.SELL, OrderType.STOP, stop_loss_price, order_start, order_id)
-        else:  # self.position_side == PositionSide.SHORT
-            return self.add_order(OrderSide.BUY, OrderType.STOP, stop_loss_price, order_start, order_id)
-
-    def add_take_profit_order(self, take_profit_price, order_start, order_id):
-        if self.position_side == PositionSide.LONG:
-            return self.add_order(OrderSide.SELL, OrderType.LIMIT, take_profit_price, order_start, order_id)
-
     def add_market_sell_order(self, shares, target_sell_price, order_start, order_id):
         self.shares = shares
         self.target_sell_price = target_sell_price
         return self.add_order(OrderSide.SELL, OrderType.MARKET, target_sell_price, order_start, order_id)
-
-    def add_limit_sell_order(self, shares, limit_sell_price, order_start, order_id):
-        self.shares = shares
-        self.target_sell_price = limit_sell_price
-        return self.add_order(OrderSide.SELL, OrderType.LIMIT, limit_sell_price, order_start, order_id)
 
     def add_buy_order_execution(self, order_type, status, actual_purchase_price, order_end):
         self.buy_time = order_end

@@ -15,7 +15,7 @@ import pandas as pd
 from TradingApis.alpacaClients import TradeMode, QueryMode, set_alpaca_modes, get_trade_mode
 from TradingApis.alpacaOperations import get_bars
 from Util.pathsAndStockSets import StockSet, set_stock_set, temp_files_path, get_symbols
-from Util.purchaseTracker import trade_tracker
+from Util.tradeTracker import trade_tracker
 from Util.datesAndTimestamps import (timestamp, sleep_until_time, time_string, date_string, most_recent_bar_time,
                                      trading_dates, datetime_string)
 from Util.tradeExecution import TimedHoldLongTradeExecutor, process_trade_executors

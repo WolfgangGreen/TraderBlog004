@@ -8,7 +8,7 @@ from alpaca.trading.enums import OrderSide, PositionSide
 
 from TradingApis.alpacaOperations import (place_market_buy_order, place_market_sell_order,
                                           get_latest_bar, process_orders_for_trade)
-from Util.purchaseTracker import trade_tracker
+from Util.tradeTracker import trade_tracker
 
 
 # What are the components of a trade plan?

@@ -11,7 +11,7 @@ from Util.datesAndTimestamps import timestamp, time_string
 from Util.tradeIdentification import HigherHighsHigherLowsTradeIdentifier, FastFollowerTradeIdentifier
 
 # Try out the Higher Highs Higher Lows trade identifier on particular cases
-if False:
+if True:
     # symbol, date = ('ENPH', timestamp('2023-12-01'))
     # symbol, date = ('ODFL', timestamp('2023-12-06'))
     # symbol, date = ('WBA', timestamp('2023-12-07'))
